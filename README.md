@@ -73,18 +73,16 @@ python test_realsense_setup.py
 
 ### Quick Start
 ```bash
-python run_realsense_3d_segmentation_corrected.py
+python run_realsense_3d_segmentation.py
 ```
 
 ### Available Scripts
 
 | Script | Description |
 |--------|-------------|
-| `run_realsense_3d_segmentation_corrected.py` | **Main application** - 3D detection with segmentation and unique colors |
-| `run_realsense_3d_segmentation.py` | Previous version with mean depth calculation |
+| `run_realsense_3d_segmentation.py` | **Main application** - 3D detection with segmentation and unique colors |
 | `test_realsense_setup.py` | Verify camera and dependencies |
-| `realsense_calibration.py` | Camera calibration and depth accuracy testing |
-| `run_realsense_3d_cubes_clean.py` | Basic 3D cube visualization without segmentation |
+| `realsense_calibration.py` | Camera calibration and depth accuracy testing (optional) |
 
 ### Configuration Options
 
@@ -109,19 +107,17 @@ detector = ObjectDetector(model_size="nano", device="cpu")  # or "cuda" for GPU
 
 ```
 YOLO-3D/
-├── run_realsense_3d_segmentation_corrected.py  # Main application (latest)
-├── run_realsense_3d_segmentation.py            # Previous version
-├── realsense_camera.py                         # RealSense camera interface
-├── realsense_depth.py                          # Real depth processing
-├── realsense_bbox3d_utils.py                   # 3D bounding box utilities
-├── detection_model.py                          # YOLOv11 object detection
-├── bbox3d_utils.py                             # Original 3D utilities
-├── test_realsense_setup.py                     # Setup verification
-├── realsense_calibration.py                    # Camera calibration
-├── install_realsense.sh                        # Automated installation
-├── requirements.txt                            # Python dependencies
-├── README_REALSENSE.md                         # Detailed RealSense documentation
-└── CONVERSION_SUMMARY.md                       # Conversion process summary
+├── run_realsense_3d_segmentation.py  # Main application
+├── realsense_camera.py               # RealSense camera interface
+├── realsense_depth.py                # Real depth processing
+├── realsense_bbox3d_utils.py         # 3D bounding box utilities
+├── detection_model.py                # YOLOv11 object detection
+├── test_realsense_setup.py           # Setup verification
+├── realsense_calibration.py          # Camera calibration (optional)
+├── install_realsense.sh              # Automated installation
+├── requirements.txt                  # Python dependencies
+├── yolo11n.pt                        # YOLO model weights
+└── README.md                         # This file
 ```
 
 ## How It Works
@@ -155,6 +151,72 @@ YOLO-3D/
 - **Kalman Filtering**: Smooth tracking across frames
 - **Unique IDs**: Each object gets a persistent ID
 - **Color Consistency**: Same object maintains same color throughout tracking
+
+## GPU Setup for Jetson Devices
+
+### Current Status
+The application currently runs with CPU-only PyTorch. For GPU acceleration on Jetson devices, you need CUDA-enabled PyTorch.
+
+### Why GPU Setup is Challenging
+- Jetson devices require special NVIDIA-built PyTorch wheels (not standard PyTorch)
+- Official PyTorch wheels for JetPack 6.0 have broken download links
+- Standard PyTorch wheels are built for x86_64, not ARM64 Jetson devices
+
+### GPU Setup Options
+
+#### Option 1: Upgrade JetPack (Recommended)
+Upgrade to JetPack 6.1 or 6.2 where PyTorch wheels are more readily available:
+```bash
+# Check current version
+cat /etc/nv_tegra_release
+
+# Upgrade to JetPack 6.1 (if available)
+sudo apt update
+sudo apt upgrade
+```
+
+#### Option 2: Manual PyTorch Compilation
+Build PyTorch from source with CUDA support:
+```bash
+# Install dependencies
+sudo apt-get install build-essential cmake git
+
+# Clone PyTorch
+git clone --recursive https://github.com/pytorch/pytorch
+cd pytorch
+
+# Set environment variables
+export USE_CUDA=1
+export USE_CUDNN=1
+export TORCH_CUDA_ARCH_LIST="8.7"  # For Jetson AGX Orin
+
+# Build and install
+python setup.py install
+```
+
+#### Option 3: Use Jetson Containers
+Use pre-built containers with GPU support:
+```bash
+# Install jetson-containers
+git clone https://github.com/dusty-nv/jetson-containers.git
+cd jetson-containers
+bash install.sh
+
+# Run with PyTorch container
+jetson-containers run dustynv/pytorch:2.5
+```
+
+### Performance Impact
+- **CPU mode**: ~5-10 FPS (functional but slower)
+- **GPU mode**: ~20-30 FPS (significantly faster)
+
+### Verification
+To check if GPU is working:
+```python
+import torch
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"GPU count: {torch.cuda.device_count()}")
+```
 
 ## Troubleshooting
 
@@ -234,72 +296,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For issues and questions:
 - Check the troubleshooting section above
-- Review `README_REALSENSE.md` for detailed documentation
+- Review the setup verification script
 - Open an issue on GitHub with camera model and error details
-
-## GPU Setup for Jetson Devices
-
-### Current Status
-The application currently runs with CPU-only PyTorch. For GPU acceleration on Jetson devices, you need CUDA-enabled PyTorch.
-
-### Why GPU Setup is Challenging
-- Jetson devices require special NVIDIA-built PyTorch wheels (not standard PyTorch)
-- Official PyTorch wheels for JetPack 6.0 have broken download links
-- Standard PyTorch wheels are built for x86_64, not ARM64 Jetson devices
-
-### GPU Setup Options
-
-#### Option 1: Upgrade JetPack (Recommended)
-Upgrade to JetPack 6.1 or 6.2 where PyTorch wheels are more readily available:
-```bash
-# Check current version
-cat /etc/nv_tegra_release
-
-# Upgrade to JetPack 6.1 (if available)
-sudo apt update
-sudo apt upgrade
-```
-
-#### Option 2: Manual PyTorch Compilation
-Build PyTorch from source with CUDA support:
-```bash
-# Install dependencies
-sudo apt-get install build-essential cmake git
-
-# Clone PyTorch
-git clone --recursive https://github.com/pytorch/pytorch
-cd pytorch
-
-# Set environment variables
-export USE_CUDA=1
-export USE_CUDNN=1
-export TORCH_CUDA_ARCH_LIST="8.7"  # For Jetson AGX Orin
-
-# Build and install
-python setup.py install
-```
-
-#### Option 3: Use Jetson Containers
-Use pre-built containers with GPU support:
-```bash
-# Install jetson-containers
-git clone https://github.com/dusty-nv/jetson-containers.git
-cd jetson-containers
-bash install.sh
-
-# Run with PyTorch container
-jetson-containers run dustynv/pytorch:2.5
-```
-
-### Performance Impact
-- **CPU mode**: ~5-10 FPS (functional but slower)
-- **GPU mode**: ~20-30 FPS (significantly faster)
-
-### Verification
-To check if GPU is working:
-```python
-import torch
-print(f"CUDA available: {torch.cuda.is_available()}")
-print(f"GPU count: {torch.cuda.device_count()}")
-```
-

@@ -14,7 +14,7 @@ import random
 
 # Import our modules
 from detection_model import ObjectDetector
-from bbox3d_utils import BBox3DEstimator
+from realsense_bbox3d_utils import RealSenseBBox3DEstimator
 
 class RealSense3DSegmentation:
     """
@@ -159,7 +159,7 @@ class RealSense3DSegmentation:
             return None, None, None
     
     def get_depth_in_bbox(self, bbox, depth_map):
-        """Get average depth value within a bounding box"""
+        """Get closest depth value within a bounding box (more accurate for object distance)"""
         if depth_map is None:
             return 0.0
         
@@ -181,7 +181,7 @@ class RealSense3DSegmentation:
         if len(valid_depths) == 0:
             return 0.0
         
-        return float(np.mean(valid_depths))
+        return float(np.min(valid_depths))
     
     def get_object_color(self, object_id, class_name):
         """Get unique color for each object"""
@@ -393,15 +393,22 @@ def main():
     
     # Initialize models
     print("Initializing models...")
+    # Check GPU availability
+    import torch
+    if torch.cuda.is_available():
+        print(f"✓ GPU available: {torch.cuda.get_device_name(0)}")
+        print(f"  CUDA version: {torch.version.cuda}")
+        print(f"  GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+    else:
+        print("⚠️ GPU not available, using CPU")
+        print("  For better performance, consider installing CUDA-enabled PyTorch")
     try:
-        detector = ObjectDetector(model_size="nano", device="cpu")
+        detector = ObjectDetector(model_size="nano", device="cuda" if torch.cuda.is_available() else "cpu")
         camera_params = camera.get_camera_params()
         
         # Use the existing BBox3DEstimator
-        bbox3d_estimator = BBox3DEstimator(
-            camera_matrix=camera_params['camera_matrix'],
-            projection_matrix=camera_params['projection_matrix']
-        )
+        # Use the RealSense 3D estimator
+        bbox3d_estimator = RealSenseBBox3DEstimator(camera)
         
         print("✓ All models initialized")
     except Exception as e:

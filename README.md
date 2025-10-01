@@ -236,3 +236,70 @@ For issues and questions:
 - Check the troubleshooting section above
 - Review `README_REALSENSE.md` for detailed documentation
 - Open an issue on GitHub with camera model and error details
+
+## GPU Setup for Jetson Devices
+
+### Current Status
+The application currently runs with CPU-only PyTorch. For GPU acceleration on Jetson devices, you need CUDA-enabled PyTorch.
+
+### Why GPU Setup is Challenging
+- Jetson devices require special NVIDIA-built PyTorch wheels (not standard PyTorch)
+- Official PyTorch wheels for JetPack 6.0 have broken download links
+- Standard PyTorch wheels are built for x86_64, not ARM64 Jetson devices
+
+### GPU Setup Options
+
+#### Option 1: Upgrade JetPack (Recommended)
+Upgrade to JetPack 6.1 or 6.2 where PyTorch wheels are more readily available:
+```bash
+# Check current version
+cat /etc/nv_tegra_release
+
+# Upgrade to JetPack 6.1 (if available)
+sudo apt update
+sudo apt upgrade
+```
+
+#### Option 2: Manual PyTorch Compilation
+Build PyTorch from source with CUDA support:
+```bash
+# Install dependencies
+sudo apt-get install build-essential cmake git
+
+# Clone PyTorch
+git clone --recursive https://github.com/pytorch/pytorch
+cd pytorch
+
+# Set environment variables
+export USE_CUDA=1
+export USE_CUDNN=1
+export TORCH_CUDA_ARCH_LIST="8.7"  # For Jetson AGX Orin
+
+# Build and install
+python setup.py install
+```
+
+#### Option 3: Use Jetson Containers
+Use pre-built containers with GPU support:
+```bash
+# Install jetson-containers
+git clone https://github.com/dusty-nv/jetson-containers.git
+cd jetson-containers
+bash install.sh
+
+# Run with PyTorch container
+jetson-containers run dustynv/pytorch:2.5
+```
+
+### Performance Impact
+- **CPU mode**: ~5-10 FPS (functional but slower)
+- **GPU mode**: ~20-30 FPS (significantly faster)
+
+### Verification
+To check if GPU is working:
+```python
+import torch
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"GPU count: {torch.cuda.device_count()}")
+```
+
